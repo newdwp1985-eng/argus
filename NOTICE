@@ -1,0 +1,60 @@
+# 第三方代码声明
+
+Argus 的 `argus/vendor/` 目录包含来自 **wechat-mac-rpa** 的代码，用于窗口截图、
+本地 OCR 与基础布局解析。该项目的许可证为 MIT，其完整声明如下。
+
+源项目：https://github.com/wq19901103wq/wechat-mac-rpa
+
+以下文件原样复制（仅将 `from src.*` 的导入路径改为 `from argus.vendor.*`，
+不做逻辑修改）：
+
+| Argus 中的路径 | 上游来源 |
+|---|---|
+| `argus/vendor/window_capture.py` | `src/capture/window_capture.py` |
+| `argus/vendor/layout_parser.py` | `src/layout/layout_parser.py` |
+| `argus/vendor/profile.py` | `src/layout/profile.py` |
+| `argus/vendor/extractor.py` | `src/message/extractor.py` |
+| `argus/vendor/models.py` | `src/models/base.py` |
+| `argus/vendor/vision_ocr.py` | `src/ocr/vision_ocr.py` |
+| `argus/vendor/system_automation.py` | `src/action/system_automation.py` |
+
+---
+
+## wechat-mac-rpa
+
+MIT License
+
+Copyright (c) 2026 wechat-mac-rpa contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## 与上游的关系
+
+Argus 与 wechat-mac-rpa 的差异不在感知层，而在感知之上的三件事：
+
+1. **可达性**：把上游 4 万行、绑定单一 agent 框架的工程收敛成可独立安装的
+   MCP 服务与 Python 包；
+2. **可验证性**：发送不再「按下回车就算成功」，而是回读输入框、OCR 定位
+   「发送」按钮、发送后复核，并区分「已送达 / 未确认 / 未送达」；
+3. **增量与回溯**：补齐跨屏回溯读取与水位线式增量去重，使「监听新消息」
+   在长会话里仍然可用。
+
+感知能力（截图、OCR、消息结构还原的基础实现）来自上游，未做重写。

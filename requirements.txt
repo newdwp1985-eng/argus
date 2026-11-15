@@ -1,0 +1,17 @@
+# Argus 运行依赖
+#
+# 关键约束：mcp 必须 <2。mcp 2.x 把 FastMCP 改名为 MCPServer，
+# 旧版导入语句会直接抛 ImportError，表现为「服务起不来」而非报错信息。
+mcp[cli]>=1.9,<2
+
+# Apple 框架绑定：Quartz 负责窗口枚举与 CGEvent，
+# Cocoa 负责 NSWorkspace/NSPasteboard，Vision 负责本地 OCR。
+pyobjc-core>=10.0
+pyobjc-framework-Cocoa>=10.0
+pyobjc-framework-Quartz>=10.0
+pyobjc-framework-Vision>=10.0
+
+# 图像与数值处理：OCR 结果的空间聚类、墨色统计依赖这两个
+Pillow>=10.0
+numpy>=1.24
+scipy>=1.10

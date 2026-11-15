@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv*/
+venv/
+
+# 运行时产物 —— 含真实聊天内容，绝不入库
+argus/logs/
+argus/data/
+*.log
+*.jsonl
+*.png
+*.jpg
+*.jpeg
+
+# 本地配置覆盖
+argus/profile.local.json
+.env
+
+# 编辑器与系统
+.DS_Store
+.idea/
+.vscode/
+*.swp

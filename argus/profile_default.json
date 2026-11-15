@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "note": "坐标与比例均为本机实测值，不是通用常数。换显示器缩放、改微信字号、拉大窗口后需重新校准。",
+  "layout": {
+    "chat_left_ratio": 0.2727,
+    "chat_list_right_ratio": 0.2045,
+    "input_bottom_margin_px": 240,
+    "title_bar_px": 70,
+    "search_panel_x_ratio": 0.55,
+    "input_box": {
+      "x_min": 0.4,
+      "x_max": 0.86,
+      "y_min": 0.8,
+      "y_max": 0.905
+    }
+  },
+  "parse": {
+    "body_ink_max": 90,
+    "label_ink_min": 110,
+    "nickname_max_gap": 90,
+    "bubble_gap_ratio": 1.7,
+    "bubble_gap_min": 56,
+    "nickname_x_tol": 80
+  },
+  "scroll": {
+    "safe_lines": 8,
+    "max_overlap": 14,
+    "anchor_text_len": 16,
+    "fuzzy_ratio": 0.82,
+    "max_retries": 4,
+    "focus_x_ratio": 0.6,
+    "focus_y_ratio": 0.45,
+    "settle_wait": 0.55,
+    "settle_tries": 3
+  },
+  "limits": {
+    "max_text_len": 2000,
+    "duplicate_window_seconds": 30,
+    "lock_timeout_seconds": 30,
+    "monitor_max_seconds": 600,
+    "monitor_default_seconds": 30
+  }
+}

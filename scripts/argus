@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Thin CLI wrapper. Resolves the project root from its own real location,
+# so it works as a symlink in PATH without hardcoding any absolute path.
+
+set -euo pipefail
+
+SELF="$(/usr/bin/readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+HERE="$(cd "$(dirname "$SELF")" && pwd)"
+ROOT="$(dirname "$HERE")"
+
+if [ -x "$ROOT/.venv/bin/python" ]; then
+  PY="$ROOT/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  PY="python3"
+else
+  echo "找不到 Python 解释器。请先运行 ./install.sh" >&2
+  exit 1
+fi
+
+exec env PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" "$PY" -m argus.cli "$@"
