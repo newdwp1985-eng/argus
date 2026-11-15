@@ -1,11 +1,21 @@
 # Argus
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
+![Tests](https://img.shields.io/badge/tests-66%20passed-brightgreen)
+![Skill Market](https://img.shields.io/badge/skill%20market-pending%20review-blue)
+
 **Vision RPA that reads the screen when the accessibility tree gives you nothing.**
 
 WeChat 4.x, Douyin, and most Qt/CEF apps expose little more than a window frame through
 macOS Accessibility. Argus takes the other road: screenshot → on-device OCR → reconstruct
 message structure → window-relative actions. Every action comes back with a receipt, and it
 only reports what it actually saw.
+
+**Skill market status**: submitted for review in the WorkBuddy skill market on 2026-11-15.
+Once approved, this line will carry the listing link and the one-step install. The repository
+is the source of truth; the skill package is identical except that it ships without the README
+files and `CHANGELOG.md`.
 
 ```
 $ARGUS latest -n 3
@@ -45,10 +55,15 @@ Argus continues along the third road and adds the part that comes after "it runs
 
 ## Three things worth a closer look
 
-**1. Delivery is a three-state outcome.**
+**1. Delivery is not collapsed into a boolean.**
 
-`delivered` / `unverified` / `failed`. "No evidence" and "definitely did not happen" are
-different things, and neither should be silently rounded to success.
+A send has more than two outcomes, so `send_message` returns two independent fields:
+`sent` (the send button was clicked and the input box verified empty) and
+`confirmed_in_ui` (the text was actually read back from the message area). `sent: true`
+with `confirmed_in_ui: false` means the action ran but the UI evidence is missing — Argus
+returns a `warnings` entry asking for a human check, treating it as neither success nor
+failure. A real failure (button not found, input box not cleared) returns
+`SEND_UNVERIFIED` and never carries `sent: true`.
 
 This was forced by a real incident: an early version pressed Enter to send, but with
 WeChat's "press Enter to send" turned off, Enter only inserts a newline. The message sat in
@@ -215,4 +230,4 @@ See [NOTICE](NOTICE) for the full attribution.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Version history and known boundaries: [CHANGELOG.md](CHANGELOG.md).

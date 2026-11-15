@@ -1,5 +1,10 @@
 # Argus · 百眼
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
+![Tests](https://img.shields.io/badge/tests-66%20passed-brightgreen)
+![Skill Market](https://img.shields.io/badge/skill%20market-pending%20review-blue)
+
 **读得懂屏幕的视觉 RPA —— 专治无障碍树失效的桌面应用。**
 
 当微信 4.x、抖音、多数 Qt/CEF 界面的无障碍树只剩几个空按钮时，Argus 换成另一条路：
@@ -17,6 +22,8 @@ $ARGUS latest -n 3
   ]
 }
 ```
+
+**技能市场状态**：2026-11-15 已提交 WorkBuddy 技能市场审核。审核通过后此处替换为详情页链接与一键安装方式；未通过则按反馈整改后重新提交。技能包与仓库同源，仅少了 README 与 `CHANGELOG.md`。
 
 ---
 
@@ -43,10 +50,13 @@ Argus 接着第三条路继续往下做，补的是"能跑起来之后怎么不�
 
 ## 三个不是卖点但值得看的地方
 
-**1. 投递结果分三态。**
+**1. 投递结果不折叠成一个布尔值。**
 
-一次发送的结局不只是成功或失败。Argus 返回 `delivered` / `unverified` / `failed`，
-因为「没看见证据」和「确定没做到」是两件事，前者不该被当成后者，也不该被当成成功。
+一次发送的结局不只是成功或失败，所以 `send_message` 返回两个独立字段：
+`sent`（点击发送按钮 + 输入框已清空校验通过）与 `confirmed_in_ui`（发送后在消息区
+真正读到了这条内容）。前者为真、后者为假时，说明动作执行了但界面证据缺失 ——
+Argus 返回 `warnings` 要求人工核对，既不当作成功，也不当作失败。真正的失败
+（找不到发送按钮、输入框未清空）返回 `SEND_UNVERIFIED`，不会带 `sent: true`。
 
 这个设计是被事故逼出来的：早期版本用回车键发送，而微信「按 Enter 键发送消息」关闭时
 回车只插入换行 —— 消息留在输入框里变成了两行，函数却返回 `success: true`。
@@ -222,4 +232,4 @@ Argus 在它之上重做了接口层、增量模型、回溯拼接、投递验�
 
 ## 许可
 
-MIT。见 [LICENSE](LICENSE)。
+MIT。见 [LICENSE](LICENSE)。版本变更与已知边界见 [CHANGELOG.md](CHANGELOG.md)。
