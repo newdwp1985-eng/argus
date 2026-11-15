@@ -1,29 +1,24 @@
 ---
 name: argus
-version: 1.0.0
 display_name: Argus 百眼 · 视觉 RPA
-display_name_en: Argus · Vision RPA
-description: |
-  在无障碍树读不出内容的自绘界面上读写消息：截图 → 本地 OCR → 还原消息结构 → 坐标操作，
-  每一步都带回执。专治微信 4.x 这类 AX 树只剩几个按钮的窗口。
-  当用户要求"读某个人的聊天记录""看看群里有没有新消息""在微信里发一段话""把这段消息发出去"
-  "监听新消息""识别谁说了什么"时使用。也可作为桌面 OCR 与窗口坐标点击的通用工具。
-  不适用于：需要读取微信数据库、解密协议、绕过登录或锁屏的请求。
-description_zh: |
-  在无障碍树读不出内容的自绘界面上读写消息：截图 → 本地 OCR → 还原消息结构 → 坐标操作，
-  每一步都带回执。专治微信 4.x 这类 AX 树只剩几个按钮的窗口。
-  当用户要求"读某个人的聊天记录""看看群里有没有新消息""在微信里发一段话""把这段消息发出去"
-  "监听新消息""识别谁说了什么"时使用。也可作为桌面 OCR 与窗口坐标点击的通用工具。
-  不适用于：需要读取微信数据库、解密协议、绕过登录或锁屏的请求。
-description_en: |
-  Read and send messages in apps whose accessibility tree is empty: screenshot → local OCR →
-  structured messages → coordinate-level actions, each with a receipt. Built for WeChat 4.x on
-  macOS, where the AX tree collapses to a handful of buttons. Use it when the user asks to read
-  someone's chat history, check for new messages in a group, send a message, monitor incoming
-  messages, or attribute who said what. Also usable as a general desktop OCR and window-relative
-  clicking tool. Not for: reading WeChat databases, decrypting protocols, or bypassing login/lock.
+display_name_en: Argus
+slug: argus
+description: "当界面的无障碍树读不出内容时，改用截图 + 本地 OCR 把界面读出来，再按窗口坐标操作，每一步都带回执。专治微信 4.x、抖音、Qt/CEF 这类 AX 树只剩几个空按钮的窗口。凡是需要读某个人的聊天记录、看群里有没有新消息、在微信里发一段话、监听新消息、识别谁说了什么、对窗口做 OCR、按坐标点一下的任务都先用本技能。触发词：微信自动化、读聊天记录、发微信消息、监听新消息、群消息识别、桌面 OCR、视觉 RPA、坐标点击、computer use、微信 4.x 自动化。不适用于：读取微信数据库、解密通信协议、注入进程、绕过登录或锁屏。"
+description_zh: "当界面的无障碍树读不出内容时，改用截图 + 本地 OCR 把界面读出来，再按窗口坐标操作，每一步都带回执。专治微信 4.x、抖音、Qt/CEF 这类 AX 树只剩几个空按钮的窗口。凡是需要读某个人的聊天记录、看群里有没有新消息、在微信里发一段话、监听新消息、识别谁说了什么、对窗口做 OCR、按坐标点一下的任务都先用本技能。"
+description_en: "When an app's accessibility tree collapses to a few empty buttons, read it with screenshots plus on-device OCR instead, then act by window-relative coordinates — every action returns a receipt. Built for WeChat 4.x, Douyin, and Qt/CEF surfaces on macOS. Use it to read someone's chat history, check a group for new messages, send a WeChat message, monitor incoming messages, attribute who said what, OCR any window, or click a point. Not for: reading WeChat databases, decrypting protocols, injecting into processes, or bypassing login or screen lock."
+version: 1.0.0
+author: 波弟
+category: 系统与桌面自动化
+tags: [wechat, ocr, rpa, macos, automation, vision, mcp, accessibility, vision-fallback, chat]
+platforms:
+  - macos
+permission:
+  - 屏幕录制（截图与 OCR 必需）
+  - 辅助功能 / UI 自动化（点击与键盘输入）
+  - 剪贴板读写（粘贴消息内容）
+  - 本机窗口枚举与前台状态读取
+allowed-tools: Bash
 agent_created: true
-allowed-tools: Bash, Read, Write
 ---
 
 # Argus · 百眼
