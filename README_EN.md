@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
-![Tests](https://img.shields.io/badge/tests-66%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-94%20passed-brightgreen)
 ![Skill Market](https://img.shields.io/badge/skill%20market-pending%20review-blue)
 
 **Vision RPA that reads the screen when the accessibility tree gives you nothing.**
@@ -86,12 +86,30 @@ a resized window — edit JSON, not source.
 ```bash
 git clone https://github.com/newdwp1985-eng/argus.git
 cd argus
+python -m argus.cli self-test    # step 0: verify the code — no deps, no WeChat
 ./install.sh
-$ARGUS status
+$ARGUS doctor                    # step 1: platform, dependencies, WeChat state
+$ARGUS status                    # step 2: window and UI usable?
 ```
+
+Step 0 is deliberately first: `self-test` runs pure-Python logic only, so it completes on a
+machine without pyobjc, without WeChat, and even without macOS. It answers "is the code
+correct" before the later steps answer "is the environment enough".
 
 Grant **Screen Recording** (screenshots and OCR) and **Accessibility** (clicks) in
 System Settings → Privacy & Security, then restart your terminal.
+
+### Prerequisites come in three layers, each independently verifiable
+
+| Layer | Needs | Verify with | Does not need |
+|---|---|---|---|
+| L1 logic | Python ≥ 3.10 | `python -m argus.cli self-test` | macOS, WeChat, any third-party package |
+| L2 perception | macOS + pyobjc/Pillow/numpy/scipy + Screen Recording | `$ARGUS doctor` | a logged-in WeChat |
+| L3 end-to-end | WeChat logged in + Accessibility + WeChat frontmost | `$ARGUS status` / `list` | — |
+
+When dependencies are missing, all nine tools return `success: false` with
+`DEPENDENCY_MISSING`; on non-macOS they return `PLATFORM_UNSUPPORTED`. No tracebacks.
+That makes "cannot run here" and "the code is wrong" separable by `error_code` alone.
 
 ### As an MCP server
 
@@ -196,7 +214,9 @@ cli.py / mcp_server.py     two entry points, one shared tools.py
         │     └── vendor/  capture, OCR, base layout parsing (from wechat-mac-rpa)
         │
         ├── config.py      externalized config (profile_default.json)
-        ├── errors.py      19 error codes as an enum, no string literals
+        ├── env.py         environment probe: platform/deps/missing (stdlib only)
+        ├── selftest.py    zero-dependency self-test suite
+        ├── errors.py      21 error codes as an enum, no string literals
         ├── lock.py        process-wide re-entrant mutex
         └── log.py         audit log (JSONL, rotating)
 ```
@@ -204,6 +224,12 @@ cli.py / mcp_server.py     two entry points, one shared tools.py
 The judgement layer (`dedup` / `paginate` / `msg_parse`) is pure logic and fully unit-tested;
 only `core` touches the system. That boundary keeps "changing policy" and "changing actions"
 independent.
+
+A second boundary separates "can it run here" from "does it run correctly": `env` reports
+whether prerequisites hold, `core.__init__` turns that verdict into an exception via
+`require_env()`, and the tool decorator turns the exception into a `DEPENDENCY_MISSING`
+error code. On a machine without pyobjc, `import argus`, `doctor`, `self-test` and all four
+test files still work; only calls that genuinely need the screen are refused.
 
 ---
 
@@ -213,9 +239,14 @@ independent.
 python tests/test_dedup.py         # watermark dedup, 12 cases
 python tests/test_paginate.py      # scroll-back merging, 22 cases (gaps, duplicates, OCR noise)
 python tests/test_tools_mock.py    # tool layer, 32 cases (contact matching, send guards, locking, config)
+python tests/test_env.py           # degradation, 28 cases (missing deps, non-macOS, CLI doctor, self-test)
+
+python -m argus.cli self-test      # packaged equivalent: 14 assertions, zero dependencies
 ```
 
-None of the three touch a real screen, so they run on any machine.
+None of the four touches a real screen, and none requires pyobjc: Apple frameworks and the
+scientific stack are imported on demand. Measured in a venv with no third-party packages:
+all 94 assertions pass.
 
 ---
 

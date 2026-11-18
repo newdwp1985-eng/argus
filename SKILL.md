@@ -6,7 +6,7 @@ slug: argus
 description: "当界面的无障碍树读不出内容时，改用截图 + 本地 OCR 把界面读出来，再按窗口坐标操作，每一步都带回执。专治微信 4.x、抖音、Qt/CEF 这类 AX 树只剩几个空按钮的窗口。凡是需要读某个人的聊天记录、看群里有没有新消息、在微信里发一段话、监听新消息、识别谁说了什么、对窗口做 OCR、按坐标点一下的任务都先用本技能。触发词：微信自动化、读聊天记录、发微信消息、监听新消息、群消息识别、桌面 OCR、视觉 RPA、坐标点击、computer use、微信 4.x 自动化。不适用于：读取微信数据库、解密通信协议、注入进程、绕过登录或锁屏。"
 description_zh: "当界面的无障碍树读不出内容时，改用截图 + 本地 OCR 把界面读出来，再按窗口坐标操作，每一步都带回执。专治微信 4.x、抖音、Qt/CEF 这类 AX 树只剩几个空按钮的窗口。凡是需要读某个人的聊天记录、看群里有没有新消息、在微信里发一段话、监听新消息、识别谁说了什么、对窗口做 OCR、按坐标点一下的任务都先用本技能。"
 description_en: "When an app's accessibility tree collapses to a few empty buttons, read it with screenshots plus on-device OCR instead, then act by window-relative coordinates — every action returns a receipt. Built for WeChat 4.x, Douyin, and Qt/CEF surfaces on macOS. Use it to read someone's chat history, check a group for new messages, send a WeChat message, monitor incoming messages, attribute who said what, OCR any window, or click a point. Not for: reading WeChat databases, decrypting protocols, injecting into processes, or bypassing login or screen lock."
-version: 1.0.0
+version: 1.0.1
 author: 波弟
 category: 系统与桌面自动化
 tags: [wechat, ocr, rpa, macos, automation, vision, mcp, accessibility, vision-fallback, chat]
@@ -27,6 +27,29 @@ agent_created: true
 
 ---
 
+## 运行前提（先看这一节）
+
+Argus 操作的是真实窗口，因此有硬性前提。前提分三层，每层都能独立验证，不必一次到位：
+
+| 层级 | 需要什么 | 验证命令 | 不需要什么 |
+|---|---|---|---|
+| L1 纯逻辑 | Python ≥ 3.10 | `$ARGUS self-test` | 不需要 macOS、不需要微信、不需要任何第三方库 |
+| L2 感知层 | macOS + pyobjc/Pillow/numpy/scipy + 屏幕录制权限 | `$ARGUS doctor` | 不需要微信登录 |
+| L3 端到端 | 微信已登录 + 辅助功能权限 + 微信在前台 | `$ARGUS status`、`$ARGUS list` | — |
+
+`$ARGUS doctor` 在任何环境都能跑完：`ready` 说明 L2 是否齐备，`missing` 列出缺哪几样，
+`problems` 用人话解释原因，`install_hint` 给出安装命令。它**不会**因为缺依赖而中途报错退出。
+
+`$ARGUS self-test` 跑的是不碰屏幕的纯逻辑断言（错误码、配置、增量去重、跨屏拼接、
+并发闸门、降级路径），全绿说明代码本身没问题。**在没有 GUI 的沙箱或 CI 里，这是唯一
+能拿到的有效证据** —— L2/L3 无法在无屏幕环境验证，原因不是缺陷，而是视觉 RPA 的输入
+本来就是屏幕。
+
+缺依赖时不需要猜：所有工具都会返回 `success: false` 并给出 `DEPENDENCY_MISSING` 或
+`PLATFORM_UNSUPPORTED`，不会抛 traceback。
+
+---
+
 ## 什么时候用
 
 **用**：要在微信里读消息、发消息、看有没有新消息；要 OCR 某个窗口；要按窗口坐标点一下。
@@ -37,9 +60,9 @@ agent_created: true
 ## 第一步：三条命令确认环境
 
 ```bash
+$ARGUS doctor        # 依赖、平台、微信运行状态，一次说清
 $ARGUS status        # 微信在跑吗？窗口多大？界面可用吗？
 $ARGUS list          # 最近会话列表
-$ARGUS latest -n 5   # 当前聊天最新 5 条
 ```
 
 `status` 返回 `ui_status: ok` 才继续。若不是 `ok`，照 `ui_detail` 说的做，不要重试刷屏。
@@ -50,12 +73,14 @@ $ARGUS latest -n 5   # 当前聊天最新 5 条
 
 | 想做什么 | 命令 |
 |---|---|
-| 看环境 | `$ARGUS status` |
+| 看环境（不需要屏幕） | `$ARGUS doctor` |
+| 跑纯逻辑自检（不需要屏幕） | `$ARGUS self-test` |
+| 看微信状态 | `$ARGUS status` |
 | 看会话列表 | `$ARGUS list` |
 | 找联系人 | `$ARGUS search "张三"` |
-| 读某人聊天记录 | `$ARGUS history "张三" -n 20` |
+| 读某人聊天记录 | `$ARGUS history "张三" --limit 20` |
 | 读更早的历史（跨屏回溯） | `$ARGUS history "张三" --deep --scrolls 8` |
-| 看当前聊天最新消息 | `$ARGUS latest -n 10` |
+| 看当前聊天最新消息 | `$ARGUS latest --limit 10` |
 | 抽一次样看有没有新消息 | `$ARGUS monitor --once` |
 | 连续盯 N 秒 | `$ARGUS monitor --seconds 60` |
 | 发消息 | `$ARGUS send "张三" "内容" --confirm` |
@@ -111,6 +136,9 @@ $ARGUS latest -n 5   # 当前聊天最新 5 条
 | `SEARCH_PANEL_OPEN` | 搜一搜面板挤占聊天区 | 请用户关掉该面板 |
 | `DUPLICATE_BLOCKED` | 30 秒内发过同样内容 | 确实要重发就等窗口过去 |
 | `BUSY` | 另一个操作正在占用界面 | 等它结束，不要并发硬闯 |
+| `DEPENDENCY_MISSING` | 缺 pyobjc / Pillow / numpy / scipy | 按 `$ARGUS doctor` 的 `install_hint` 装齐 |
+| `PLATFORM_UNSUPPORTED` | 当前不是 macOS | 换 macOS；逻辑层可用 `$ARGUS self-test` 验证 |
+| `WECHAT_NOT_RUNNING` | 微信没启动 | 启动并登录 |
 
 ---
 
@@ -128,6 +156,8 @@ $ARGUS latest -n 5   # 当前聊天最新 5 条
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
+| 所有工具都返回 `DEPENDENCY_MISSING` | 依赖没装齐 | `$ARGUS doctor` 看 `missing`，按 `install_hint` 装 |
+| 所有工具都返回 `PLATFORM_UNSUPPORTED` | 不在 macOS 上 | 换 macOS；先跑 `$ARGUS self-test` 确认逻辑没问题 |
 | `WECHAT_NOT_RUNNING` | 微信没启动 | 启动并登录 |
 | `ui_status: not_ready` | 界面被遮挡/最小化/锁定 | 按 `ui_detail` 恢复 |
 | OCR 结果为空 | 窗口太小或内容全在侧栏 | 把窗口拉到至少 600×480 |

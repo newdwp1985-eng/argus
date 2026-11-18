@@ -1,5 +1,11 @@
 # Argus 运行依赖
 #
+# 这些依赖只在「真正操作窗口」时才需要。
+# 下面三条命令不需要任何第三方包，装依赖之前就能跑：
+#   python -m argus.cli self-test     # 纯逻辑自检
+#   python -m argus.cli doctor        # 环境诊断
+#   python tests/test_dedup.py        # 单测（四套同样零依赖）
+#
 # 关键约束：mcp 必须 <2。mcp 2.x 把 FastMCP 改名为 MCPServer，
 # 旧版导入语句会直接抛 ImportError，表现为「服务起不来」而非报错信息。
 mcp[cli]>=1.9,<2
@@ -11,7 +17,8 @@ pyobjc-framework-Cocoa>=10.0
 pyobjc-framework-Quartz>=10.0
 pyobjc-framework-Vision>=10.0
 
-# 图像与数值处理：OCR 结果的空间聚类、墨色统计依赖这两个
+# 图像与数值处理：截图裁剪与放大（Pillow）、墨色统计（numpy）、
+# 布局连通域标记（scipy.ndimage）。
 Pillow>=10.0
 numpy>=1.24
 scipy>=1.10

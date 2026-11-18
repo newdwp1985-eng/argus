@@ -15,6 +15,8 @@ class Err(str, Enum):
     """全部对外错误码。新增错误必须加在这里，禁止再写字面量。"""
 
     # --- 环境与界面 ---
+    PLATFORM_UNSUPPORTED = "PLATFORM_UNSUPPORTED"
+    DEPENDENCY_MISSING = "DEPENDENCY_MISSING"
     WECHAT_NOT_RUNNING = "WECHAT_NOT_RUNNING"
     WINDOW_NOT_FOUND = "WINDOW_NOT_FOUND"
     NOT_READY = "NOT_READY"
@@ -65,3 +67,21 @@ def from_state(status: str) -> str:
 def all_codes() -> list[str]:
     """列出全部错误码，供文档生成与测试断言使用。"""
     return sorted(e.value for e in Err)
+
+
+class EnvUnavailable(RuntimeError):
+    """运行环境不满足前提：平台不对、缺 pyobjc、缺图像库等。
+
+    为什么单独定义一个异常：这些都是「还没开始干活就注定做不成」的情形，
+    与业务失败（联系人找不到、界面不可用）性质不同。工具层统一捕获它，
+    转成结构化的错误码返回，调用方拿到的永远是可解析的 JSON，
+    而不是一段 traceback。
+    """
+
+    def __init__(self, message: str, code: Err = Err.DEPENDENCY_MISSING) -> None:
+        super().__init__(message)
+        self.code = code
+
+    @property
+    def error_code(self) -> str:
+        return self.code.value

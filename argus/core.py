@@ -16,18 +16,44 @@ import time
 from dataclasses import dataclass, replace
 from typing import Any, Optional
 
-# 复用原项目模块
-import AppKit
-import Quartz
-from argus.vendor.window_capture import WindowCapture, WeChatNotReadyError, WindowNotFoundError
-from argus.vendor.layout_parser import LayoutParser
+# 复用原项目模块。
+# 注意：Apple 框架与感知层依赖一律采用「允许缺失」的导入方式。
+# 这样在没有 pyobjc / Pillow / numpy 的环境里，``import argus`` 仍然成功，
+# 纯逻辑层（去重、拼接、错误码、配置、CLI 诊断、单元测试）照常可用；
+# 只有真正要读写屏幕时，才会由 require_env() 明确抛出 DEPENDENCY_MISSING。
 from argus.vendor.profile import LayoutProfile, PROFILE_WECHAT_MAC_1760X1280
-from argus.vendor.extractor import MessageExtractor
 from argus.vendor.models import PerceptionResult
-from argus.vendor.vision_ocr import VisionOCREngine
 
 from .config import cfg, cfg_float, cfg_int, describe as describe_config
+from .env import require_env
+from .errors import EnvUnavailable, Err
 from .log import get_logger
+
+try:
+    import AppKit
+    import Quartz
+except Exception as _exc:  # noqa: BLE001 pyobjc 版本不匹配时也可能抛非 ImportError
+    AppKit = None  # type: ignore[assignment]
+    Quartz = None  # type: ignore[assignment]
+    APPLE_FRAMEWORKS_ERROR: Optional[str] = f"{type(_exc).__name__}: {_exc}"
+else:
+    APPLE_FRAMEWORKS_ERROR = None
+
+try:
+    from argus.vendor.window_capture import (  # noqa: F401
+        WeChatNotReadyError,
+        WindowCapture,
+        WindowNotFoundError,
+    )
+    from argus.vendor.layout_parser import LayoutParser  # noqa: F401
+    from argus.vendor.extractor import MessageExtractor  # noqa: F401
+    from argus.vendor.vision_ocr import VisionOCREngine  # noqa: F401
+except Exception as _exc:  # noqa: BLE001
+    WeChatNotReadyError = WindowNotFoundError = None  # type: ignore[assignment]
+    WindowCapture = LayoutParser = MessageExtractor = VisionOCREngine = None  # type: ignore[assignment]
+    PERCEPTION_ERROR: Optional[str] = f"{type(_exc).__name__}: {_exc}"
+else:
+    PERCEPTION_ERROR = None
 
 logger = get_logger("argus.core")
 
@@ -36,6 +62,11 @@ CLICLICK_CANDIDATES = (
     "/opt/homebrew/bin/cliclick",
     "/usr/local/bin/cliclick",
 )
+
+#: CGEventFlags 中「Command 键」掩码的数值（CoreGraphics CGEventTypes.h：
+#: kCGEventFlagMaskCommand = 0x00100000）。写成字面量而不是引用 Quartz 常量，
+#: 是为了让类体在缺少 pyobjc 的环境里也能完成定义。
+CMD_FLAG = 0x00100000
 
 # 判定窗口可用的最小尺寸。原项目固定 800x600，会把 772x640 的正常窗口误判为未就绪。
 MIN_WINDOW_WIDTH = 600
@@ -139,6 +170,14 @@ class WeChatCore:
     """微信桌面状态读取与交互的底层封装。"""
 
     def __init__(self) -> None:
+        # 先校验环境：缺 pyobjc / Pillow / numpy 时在这里就抛出可读的错误，
+        # 而不是等到第一次截图时炸出一段 traceback。
+        require_env()
+        if APPLE_FRAMEWORKS_ERROR or PERCEPTION_ERROR:
+            raise EnvUnavailable(
+                "感知层不可用：" + (APPLE_FRAMEWORKS_ERROR or PERCEPTION_ERROR or "未知原因"),
+                Err.DEPENDENCY_MISSING,
+            )
         self.profile = PROFILE_WECHAT_MAC_4X
         self.capture = WindowCapture(
             min_effective_width=MIN_WINDOW_WIDTH,
@@ -442,9 +481,12 @@ class WeChatCore:
         return False, f"{apple_err} | CGEvent 亦失败: {fallback_err}"
 
     # 常用按键 -> (虚拟键码, 修饰键标志)
+    # 这里用数值常量而不是 Quartz.kCGEventFlagMaskCommand：类体在模块导入时就会求值，
+    # 一旦环境里没有 pyobjc，引用 Quartz 会让整个模块导入失败。该数值取自
+    # CoreGraphics 的 CGEventTypes.h（kCGEventFlagMaskCommand = 0x00100000）。
     _KEYMAP = {
-        'keystroke "v" using command down': (9, Quartz.kCGEventFlagMaskCommand),
-        'keystroke "a" using command down': (0, Quartz.kCGEventFlagMaskCommand),
+        'keystroke "v" using command down': (9, CMD_FLAG),
+        'keystroke "a" using command down': (0, CMD_FLAG),
         "key code 36": (36, 0),
         "key code 53": (53, 0),
         "key code 51": (51, 0),  # Delete（向前删除），清空输入框用

@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
-![Tests](https://img.shields.io/badge/tests-66%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-94%20passed-brightgreen)
 ![Skill Market](https://img.shields.io/badge/skill%20market-pending%20review-blue)
 
 **读得懂屏幕的视觉 RPA —— 专治无障碍树失效的桌面应用。**
@@ -79,12 +79,30 @@ Argus 返回 `warnings` 要求人工核对，既不当作成功，也不当作�
 ```bash
 git clone https://github.com/newdwp1985-eng/argus.git
 cd argus
-./install.sh                    # 建 venv、装依赖、装 CLI 薄壳
-$ARGUS status                   # 确认环境
+python -m argus.cli self-test    # 第 0 步：验证代码本身，不需要装依赖、不需要微信
+./install.sh                     # 建 venv、装依赖、装 CLI 薄壳
+$ARGUS doctor                    # 第 1 步：确认平台、依赖与微信状态
+$ARGUS status                    # 第 2 步：确认窗口与界面可用
 ```
+
+第 0 步是刻意放在最前面的：`self-test` 只跑纯 Python 逻辑，因此在没有 pyobjc、
+没有微信、甚至不是 macOS 的机器上都能跑完。它先回答「代码对不对」，
+后面的失败才轮得到「环境够不够」。
 
 首次运行需要在「系统设置 → 隐私与安全性」中授予**屏幕录制**权限（截图与 OCR 必需）。
 点击类操作需要**辅助功能**权限。
+
+### 前提分三层，各自可独立验证
+
+| 层级 | 需要什么 | 验证命令 | 不需要什么 |
+|---|---|---|---|
+| L1 纯逻辑 | Python ≥ 3.10 | `python -m argus.cli self-test` | 不需要 macOS、微信、任何第三方库 |
+| L2 感知层 | macOS + pyobjc/Pillow/numpy/scipy + 屏幕录制 | `$ARGUS doctor` | 不需要微信登录 |
+| L3 端到端 | 微信已登录 + 辅助功能 + 微信在前台 | `$ARGUS status` / `list` | — |
+
+依赖缺失时，9 个工具一律返回 `success: false` 加错误码 `DEPENDENCY_MISSING`，
+非 macOS 返回 `PLATFORM_UNSUPPORTED`，不会抛 traceback。因此「跑不起来」和
+「代码写错了」可以靠 `error_code` 直接区分开。
 
 ### 作为 MCP 服务
 
@@ -200,13 +218,20 @@ cli.py / mcp_server.py     两个入口，共用 tools.py
         │     └── vendor/  截图、OCR、基础布局解析（来自 wechat-mac-rpa）
         │
         ├── config.py      配置外置（profile_default.json）
-        ├── errors.py      错误码枚举（19 个，不再用字符串字面量）
+        ├── env.py         环境判定：平台/依赖/缺失项（纯标准库，任何环境可导入）
+        ├── selftest.py    零依赖自检（doctor 之外的第二类证据）
+        ├── errors.py      错误码枚举（21 个，不再用字符串字面量）
         ├── lock.py        进程内可重入互斥
         └── log.py         审计日志（JSONL，自动轮转）
 ```
 
 判断层与通道层是分开的：`dedup` / `paginate` / `msg_parse` 都是纯逻辑，可被单测完全钉住；
 `core` 才碰系统。这条边界让"改判断"和"改操作"互不牵连。
+
+还有一条边界是「能不能跑」与「跑得对不对」分开：`env` 只回答前提是否具备，
+`core` 在 `__init__` 里调用 `require_env()` 把结论变成异常，工具层的串行装饰器再把异常
+变成 `DEPENDENCY_MISSING` 错误码。因此缺少 pyobjc 的机器上，`import argus`、
+`doctor`、`self-test`、四个测试文件全部可用，只有真正要读屏幕的调用会被拒绝。
 
 ---
 
@@ -216,9 +241,14 @@ cli.py / mcp_server.py     两个入口，共用 tools.py
 python tests/test_dedup.py         # 水位线去重 12 项
 python tests/test_paginate.py      # 跨屏拼接 22 项（含跳页、重复、OCR 噪声场景）
 python tests/test_tools_mock.py    # 工具层 32 项（联系人匹配、发送校验、并发、配置）
+python tests/test_env.py           # 环境降级 28 项（缺依赖、非 macOS、CLI 诊断、自检）
+
+python -m argus.cli self-test      # 打包后的等价入口，14 项断言，零依赖
 ```
 
-三套测试均不碰真机，可在无微信的机器上跑完。真机验证需要微信已登录并授予屏幕录制权限。
+四套测试均不碰真机，且**不要求安装 pyobjc**：Apple 框架与科学计算库都改成按需导入，
+因此在干净容器里四套都能跑完（实测：无任何第三方包的 venv 中 94 条断言全过）。
+真机验证需要微信已登录并授予屏幕录制权限。
 
 ---
 

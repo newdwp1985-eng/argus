@@ -10,7 +10,28 @@ import json
 import sys
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP
+except ImportError as _exc:  # noqa: BLE001
+    # MCP 入口缺 mcp 包时，给出可执行的结论而不是 traceback。
+    # 注意 mcp 2.x 把 FastMCP 改名为 MCPServer，因此版本上界卡在 <2。
+    sys.stderr.write(
+        json.dumps(
+            {
+                "success": False,
+                "error": (
+                    "缺少 mcp 依赖，MCP 服务无法启动。"
+                    '请执行 pip install "mcp[cli]>=1.9,<2"，'
+                    "或改用 CLI / Python API 入口（不需要 mcp）。"
+                ),
+                "error_code": "DEPENDENCY_MISSING",
+                "detail": f"{type(_exc).__name__}: {_exc}",
+            },
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
+    raise SystemExit(2) from _exc
 
 from .result import ToolResult
 from .tools import (

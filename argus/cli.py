@@ -1,6 +1,8 @@
 """命令行入口，便于在 WorkBuddy 之外独立验证每个工具。
 
 用法：
+    python -m argus.cli doctor            # 环境诊断（不碰屏幕，任何环境可跑）
+    python -m argus.cli self-test         # 纯逻辑自检（同上）
     python -m argus.cli status
     python -m argus.cli list
     python -m argus.cli search "文件传输助手"
@@ -8,6 +10,10 @@
     python -m argus.cli latest --limit 10
     python -m argus.cli monitor --seconds 30
     python -m argus.cli send "文件传输助手" "文本" --confirm
+
+两条「不需要屏幕」的命令刻意写在最前面：任何人都能先确认环境与代码是否正常，
+再去判断失败是不是微信没开、权限没给。工具函数的导入也推迟到真正用到时，
+这样缺依赖的机器上 doctor 与 self-test 依然能跑完。
 """
 
 from __future__ import annotations
@@ -16,22 +22,24 @@ import argparse
 import json
 import sys
 
-from .tools import (
-    get_chat_history,
-    get_chat_list,
-    get_latest_messages,
-    get_ocr_result,
-    get_screenshot,
-    get_wechat_status,
-    monitor_new_messages,
-    search_contact,
-    send_message,
-)
+
+def _tools():
+    """按需导入工具层：它依赖 Apple 框架与科学计算库，不是所有命令都需要。"""
+    from . import tools
+
+    return tools
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="argus", description="Argus 微信自动化 CLI")
-    sub = parser.add_subparsers(dest="cmd", required=True)
+    parser = argparse.ArgumentParser(prog="argus", description="Argus 视觉 RPA CLI")
+    parser.add_argument("--version", action="store_true", help="打印版本号后退出")
+    sub = parser.add_subparsers(dest="cmd")
+
+    p_doc = sub.add_parser("doctor", help="环境诊断：平台 / Python / 依赖 / 微信运行状态")
+    p_doc.add_argument("--strict", action="store_true", help="环境不就绪时以非零码退出")
+    p_doc.add_argument("--no-runtime", action="store_true", help="跳过运行期探测（不碰屏幕）")
+
+    sub.add_parser("self-test", help="纯逻辑自检：不碰屏幕、不依赖第三方库")
 
     sub.add_parser("status", help="检查微信状态")
     sub.add_parser("list", help="获取会话列表")
@@ -63,24 +71,54 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
+    if args.version:
+        from . import __version__
+
+        print(__version__)
+        return 0
+
+    if args.cmd is None:
+        parser.print_help()
+        return 0
+
+    # --- 不需要屏幕的两条命令 ---
+    if args.cmd == "doctor":
+        from . import env
+
+        report = env.summary()
+        if not args.no_runtime:
+            report["runtime"] = env.runtime_summary()
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        # 诊断「跑完了」就算成功；是否就绪写在 JSON 的 ready 里。
+        # 只有显式 --strict 才把「未就绪」当作退出码失败，供 CI 使用。
+        return 0 if (report["ready"] or not args.strict) else 1
+
+    if args.cmd == "self-test":
+        from . import selftest
+
+        return selftest.main()
+
+    # --- 需要微信与屏幕的命令 ---
+    tools = _tools()
+
     if args.cmd == "status":
-        res = get_wechat_status()
+        res = tools.get_wechat_status()
     elif args.cmd == "list":
-        res = get_chat_list()
+        res = tools.get_chat_list()
     elif args.cmd == "search":
-        res = search_contact(args.name)
+        res = tools.search_contact(args.name)
     elif args.cmd == "history":
-        res = get_chat_history(args.name, args.limit, args.deep, args.scrolls)
+        res = tools.get_chat_history(args.name, args.limit, args.deep, args.scrolls)
     elif args.cmd == "latest":
-        res = get_latest_messages(args.limit)
+        res = tools.get_latest_messages(args.limit)
     elif args.cmd == "monitor":
-        res = monitor_new_messages(args.seconds, args.interval, args.once)
+        res = tools.monitor_new_messages(args.seconds, args.interval, args.once)
     elif args.cmd == "send":
-        res = send_message(args.name, args.text, confirm=args.confirm)
+        res = tools.send_message(args.name, args.text, confirm=args.confirm)
     elif args.cmd == "shot":
-        res = get_screenshot()
+        res = tools.get_screenshot()
     elif args.cmd == "ocr":
-        res = get_ocr_result()
+        res = tools.get_ocr_result()
     else:
         parser.print_help()
         return 2

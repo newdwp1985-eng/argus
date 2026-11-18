@@ -17,7 +17,7 @@ import functools
 import threading
 import time
 
-from .errors import Err
+from .errors import EnvUnavailable, Err
 from .log import get_logger
 
 logger = get_logger("argus.lock")
@@ -97,6 +97,12 @@ def serialized(timeout: float | None = None):
             _mark(fn.__name__)
             try:
                 return fn(*args, **kwargs)
+            except EnvUnavailable as exc:
+                # 环境不满足（非 macOS、缺 pyobjc/Pillow/numpy 等）：这不是业务失败，
+                # 但也不能让 traceback 冒到调用方。统一转成结构化错误码返回，
+                # 让 Agent 能读出「为什么没做」而不是看到一段堆栈。
+                logger.warning("环境不满足，未执行 %s: %s", fn.__name__, exc)
+                return fail(str(exc), exc.error_code, new_operation_id())
             finally:
                 release()
                 _clear()

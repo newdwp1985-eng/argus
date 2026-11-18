@@ -43,6 +43,14 @@ say "安装依赖（首次约需 1-3 分钟）"
 say "依赖安装完成 ✓"
 
 # --- 3. 自检 -------------------------------------------------------------
+# 先跑零依赖自检（纯逻辑），再确认工具层能加载。两者的失败含义不同：
+# 前者挂了是代码问题，后者挂了是依赖问题，分开报比只报「导入失败」有用。
+if "$VENV/bin/python" -m argus.cli self-test >/dev/null 2>&1; then
+  say "纯逻辑自检通过 ✓（14 项断言）"
+else
+  die "纯逻辑自检失败。请执行 '$VENV/bin/python -m argus.cli self-test' 查看是哪一项。"
+fi
+
 if "$VENV/bin/python" -c "
 import sys; sys.path.insert(0, '$ROOT')
 import argus
@@ -50,7 +58,13 @@ assert len(argus.TOOLS) == 9, '工具数异常'
 " 2>/dev/null; then
   say "包导入自检通过 ✓（9 个工具）"
 else
-  die "包导入失败。请执行 '$VENV/bin/python -c \"import argus\"' 查看具体错误。"
+  die "工具层加载失败。请执行 '$VENV/bin/python -m argus.cli doctor' 查看缺哪一项依赖。"
+fi
+
+if "$VENV/bin/python" -m argus.cli doctor --strict --no-runtime >/dev/null 2>&1; then
+  say "环境诊断通过 ✓"
+else
+  warn "环境诊断未通过。执行 'argus doctor' 查看 missing 与 install_hint。"
 fi
 
 # --- 4. CLI 薄壳 ---------------------------------------------------------

@@ -18,11 +18,31 @@ import re
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
-import numpy as np
-
 from argus.vendor.models import ChatMessage, OCRTextElement, Rect, SenderType
 
 from .config import cfg_float
+from .errors import EnvUnavailable, Err
+
+# numpy 只在真正做像素统计时被用到。这里允许缺失，是为了让本模块的
+# 「结构化 / 时间戳判定」等纯逻辑部分在没有科学计算库的环境里仍可导入、
+# 仍可被单元测试覆盖；一旦走到墨色分析就会抛出明确的 DEPENDENCY_MISSING。
+try:
+    import numpy as np
+except Exception as _exc:  # noqa: BLE001
+    np = None  # type: ignore[assignment]
+    _NUMPY_ERROR: Optional[str] = f"{type(_exc).__name__}: {_exc}"
+else:
+    _NUMPY_ERROR = None
+
+
+def _require_numpy():
+    if np is None:
+        raise EnvUnavailable(
+            "缺少 numpy，无法做墨色分析；请执行 pip install -r requirements.txt"
+            + (f"（{_NUMPY_ERROR}）" if _NUMPY_ERROR else ""),
+            Err.DEPENDENCY_MISSING,
+        )
+    return np
 
 # --- 实测阈值 -------------------------------------------------------------
 # 下列常量仅作「配置文件缺失时的兜底默认值」。实际取值来自 profile_default.json，
@@ -61,6 +81,7 @@ _TIME_RES = [
 
 def _ink_luminance(arr: np.ndarray, bbox: Rect) -> float:
     """取元素包围盒内最暗 5% 像素的平均亮度，代表文字墨色。"""
+    np = _require_numpy()
     h, w = arr.shape[:2]
     x0, y0 = max(0, int(bbox.x)), max(0, int(bbox.y))
     x1, y1 = min(w, int(bbox.x + bbox.width)), min(h, int(bbox.y + bbox.height))
@@ -91,6 +112,7 @@ class _Item:
 def _classify(elements: Sequence[OCRTextElement], arr: np.ndarray,
               chat_left: float, chat_top: float, chat_bottom: float,
               image_w: float) -> List[_Item]:
+    np = _require_numpy()
     thr = _thresholds()
     items: List[_Item] = []
     for el in elements:
@@ -136,6 +158,7 @@ def parse_messages(
     chat_top: float = 0.0,
 ) -> List[ChatMessage]:
     """把 OCR 元素还原为带发送者与时间戳的消息列表。"""
+    np = _require_numpy()
     thr = _thresholds()
     image_w = float(arr.shape[1])
     items = _classify(elements, arr, chat_left, chat_top, chat_bottom, image_w)

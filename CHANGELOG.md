@@ -21,6 +21,53 @@
 
 ---
 
+## [1.0.1] — 2026-11-18
+
+修复技能市场沙箱评测不通过的问题。根因不是功能缺陷，而是**环境耦合**：1.0.0 在
+`import` 阶段就强制加载 pyobjc / Pillow / numpy，任何干净机器上第一行 import 就抛
+`ModuleNotFoundError: No module named 'AppKit'`。评测方看到的是崩溃，而不是
+「这项能力在当前环境不适用」。
+
+### 修复：把「能不能跑」从「跑得对不对」里剥出来
+
+- Apple 框架（AppKit / Quartz）与感知层模块（window_capture / layout_parser /
+  extractor / vision_ocr）改为**允许缺失**的导入：导入失败只记录原因，不阻断模块加载。
+- `msg_parse` 的 numpy 改为按需导入，缺失时抛 `EnvUnavailable` 而非 `ImportError`。
+- `argus.TOOLS` 改为惰性导出，`import argus` 不再连带加载整个工具层。
+- `WeChatCore._KEYMAP` 原先在类体里引用 `Quartz.kCGEventFlagMaskCommand`，类体在导入期
+  求值，等于把 pyobjc 变成硬依赖。改为数值常量 `CMD_FLAG = 0x00100000`
+  （CoreGraphics `CGEventTypes.h` 中该掩码的取值）。
+- 工具层的串行装饰器捕获 `EnvUnavailable`，转成 `DEPENDENCY_MISSING` /
+  `PLATFORM_UNSUPPORTED` 错误码返回。任何环境下调用 9 个工具，拿到的都是可解析 JSON。
+- MCP 入口缺 `mcp` 包时，向 stderr 输出结构化错误并 `exit 2`，不再抛导入堆栈。
+
+### 新增
+
+- `argus/env.py`：纯标准库的环境判定。列出平台、Python 版本、7 项依赖的安装名与缺失
+  影响面（哪个工具不可用）、可选外部工具（cliclick），并给出 `ready` 与 `install_hint`。
+- `argus doctor`：打印上述诊断 JSON。默认退出码 0（诊断跑完即成功，就绪与否写在
+  `ready` 字段），`--strict` 供 CI 用，`--no-runtime` 跳过运行期探测。
+- `argus self-test`：14 项零依赖断言，覆盖错误码、配置、去重（含时间戳漏检降级）、
+  拼接（含无锚点缺口）、并发闸门、环境诊断与降级路径。
+- `tests/test_env.py`：28 项断言，钉住「导入不连带工具层」「缺依赖返回错误码」
+  「doctor/self-test 在任何环境可跑通」三条契约。
+- 错误码 19 → 21（新增 `PLATFORM_UNSUPPORTED`、`DEPENDENCY_MISSING`）。
+- `SKILL.md` 增「运行前提」章节，把前提分成 L1 纯逻辑 / L2 感知层 / L3 端到端三层，
+  并写明每层的验证命令与「沙箱里能验证什么」。
+
+### 修正
+
+- `SKILL.md` 命令表里的 `-n` 改为 CLI 实际支持的 `--limit`（原文照抄示例会直接报错）。
+
+### 验证
+
+在**未安装任何第三方包**的 venv 中实测：四套测试共 94 条断言全部通过；
+`argus doctor` 输出 `ready: false` 且退出码 0；`argus self-test` 14/14 通过；
+`argus status` 返回 `DEPENDENCY_MISSING` 而不是 traceback。有依赖的真机上
+`status`、`list` 行为与 1.0.0 一致。
+
+---
+
 ## [1.0.0] — 2026-11-15
 
 首个公开版本。MCP 服务与 CLI 双入口，共 9 个工具。
@@ -123,5 +170,6 @@ Argus 在其上重做了接口层、增量模型、回溯拼接、投递验证�
 
 ---
 
-[Unreleased]: https://github.com/newdwp1985-eng/argus/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/newdwp1985-eng/argus/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/newdwp1985-eng/argus/releases/tag/v1.0.1
 [1.0.0]: https://github.com/newdwp1985-eng/argus/releases/tag/v1.0.0
