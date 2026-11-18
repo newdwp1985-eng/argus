@@ -12,10 +12,11 @@ macOS Accessibility. Argus takes the other road: screenshot → on-device OCR �
 message structure → window-relative actions. Every action comes back with a receipt, and it
 only reports what it actually saw.
 
-**Skill market status**: submitted for review in the WorkBuddy skill market on 2026-11-15.
-Once approved, this line will carry the listing link and the one-step install. The repository
-is the source of truth; the skill package is identical except that it ships without the README
-files and `CHANGELOG.md`.
+**Skill market status**: first submitted 2026-11-15 and rejected — the sandbox evaluation
+did not pass (graded low quality). 1.0.1 (2026-11-18) addresses the cause: missing
+dependencies now return an error code instead of crashing, and a zero-dependency
+`argus self-test` provides evidence that can be checked on any machine. Status: pending
+resubmission. Once approved, this section becomes the listing link.
 
 ```
 $ARGUS latest -n 3
